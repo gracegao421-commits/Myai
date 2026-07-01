@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>咖啡電商加入購物車提醒 APP - AI 顧客旅程示範</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for beautiful coffee and tech icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f7f5f0; /* Soft warm background */
+        }
+        /* Custom scrollbar for premium feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1ebd9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c3a38a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8b5a2b;
+        }
+        @keyframes coffee-drip {
+            0%, 100% { transform: translateY(0) scale(1); opacity: 0; }
+            50% { opacity: 1; }
+            80% { transform: translateY(16px) scale(0.8); opacity: 0.8; }
+        }
+        .animate-drip {
+            animation: coffee-drip 1.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="text-stone-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-[#2c1d11] text-[#f7f5f0] py-6 px-8 shadow-lg border-b-4 border-[#8b5a2b]">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="text-3xl">☕</span>
+                    <h1 class="text-2xl md:text-3xl font-black tracking-wider">咖啡電商加入購物車提醒 APP</h1>
+                </div>
+                <p class="text-stone-300 text-sm mt-1 font-light">整合實體 Word 商品資料與 Gemini API，實時生成多渠道未結帳顧客挽注文案</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <div class="bg-[#463121] text-xs px-4 py-2 rounded-lg border border-[#c3a38a]/30 flex items-center gap-2">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>10 筆咖啡專家資料已加載</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Column 1: Left - Product Selection & Details (Span 4) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            <!-- Product List Card -->
+            <div class="bg-white rounded-xl shadow-md border border-[#e3dac9] p-5 flex-grow flex flex-col max-h-[340px] lg:max-h-[380px]">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-stone-100">
+                    <h2 class="text-lg font-bold text-[#2c1d11] flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-[#8b5a2b]"></i> 1. 選擇購物車商品
+                    </h2>
+                    <span class="bg-[#f3ece0] text-[#8b5a2b] text-xs font-semibold px-2 py-0.5 rounded-full" id="productCount">10 筆商品</span>
+                </div>
+                
+                <!-- Search or Quick Filter -->
+                <div class="relative mb-3">
+                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-stone-400 text-xs"></i>
+                    </span>
+                    <input type="text" id="productSearch" placeholder="搜尋商品名稱、風味、FAQ..." 
+                           class="w-full pl-9 pr-3 py-1.5 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-[#8b5a2b] focus:ring-1 focus:ring-[#8b5a2b]">
+                </div>
+
+                <!-- Scrollable list -->
+                <div class="overflow-y-auto flex-grow space-y-2 pr-1" id="productListContainer">
+                    <!-- Dynamic product items inject here -->
+                </div>
+            </div>
+
+            <!-- Selected Product Info Details Card -->
+            <div class="bg-[#FAF8F5] rounded-xl shadow-md border-2 border-[#8b5a2b]/30 p-5 flex flex-col gap-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[#e3dac9]">
+                    <h3 class="font-bold text-[#2c1d11] flex items-center gap-2 text-md">
+                        <i class="fa-solid fa-mug-hot text-[#8b5a2b]"></i> 規格與庫存資料
+                    </h3>
+                    <span class="bg-amber-100 text-[#8b5a2b] text-[11px] font-bold px-2 py-0.5 rounded-full" id="detailTone"></span>
+                </div>
+
+                <div class="space-y-3 text-sm">
+                    <div>
+                        <span class="text-xs text-stone-500 block">商品名稱</span>
+                        <p class="font-semibold text-stone-800 text-base" id="detailName">尚未選擇</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <span class="text-xs text-stone-500 block">售價</span>
+                            <p class="font-bold text-[#8b5a2b] text-lg" id="detailPrice">-</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-stone-500 block">優惠條件</span>
+                            <p class="text-stone-700 font-medium" id="detailPromo">-</p>
+                        </div>
+                    </div>
+
+                    <div class="p-3 bg-white rounded-lg border border-[#e3dac9] space-y-2">
+                        <div>
+                            <span class="text-xs text-stone-500 font-semibold block flex items-center gap-1">
+                                <i class="fa-solid fa-circle-info text-stone-400 text-[10px]"></i> 商品特色
+                            </span>
+                            <p class="text-xs text-stone-600 leading-relaxed" id="detailFeature">-</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-stone-500 font-semibold block flex items-center gap-1">
+                                <i class="fa-solid fa-truck text-stone-400 text-[10px]"></i> 配送說明
+                            </span>
+                            <p class="text-xs text-stone-600" id="detailDelivery">-</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-stone-500 font-semibold block flex items-center gap-1">
+                                <i class="fa-solid fa-box-archive text-stone-400 text-[10px]"></i> 保存方式
+                            </span>
+                            <p class="text-xs text-stone-600" id="detailStorage">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Column 2: Center - Scenario Setup (Span 4) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            <div class="bg-white rounded-xl shadow-md border border-[#e3dac9] p-5 flex flex-col flex-grow justify-between">
+                <div>
+                    <div class="flex items-center gap-2 mb-4 pb-2 border-b border-stone-100">
+                        <h2 class="text-lg font-bold text-[#2c1d11] flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-[#8b5a2b]"></i> 2. 顧客情境與 AI 設定
+                        </h2>
+                    </div>
+
+                    <!-- Mode Toggle -->
+                    <div class="mb-4 bg-stone-100 p-1.5 rounded-lg flex gap-1">
+                        <button onclick="setGenerationMode('local')" id="btnModeLocal" class="flex-1 text-center py-1.5 rounded-md text-xs font-bold transition-all bg-white text-[#8b5a2b] shadow-sm">
+                            <i class="fa-solid fa-bolt mr-1"></i> 本地快速模式
+                        </button>
+                        <button onclick="setGenerationMode('gemini')" id="btnModeGemini" class="flex-1 text-center py-1.5 rounded-md text-xs font-bold transition-all text-stone-600 hover:text-stone-900">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1 text-purple-600"></i> Gemini AI 模式
+                        </button>
+                    </div>
+
+                    <!-- Custom API Key Card (Only visible/expandable in Gemini Mode) -->
+                    <div id="apiConfigPanel" class="mb-4 bg-[#fbfaf8] border border-stone-200 rounded-lg p-3 hidden animate-fade-in">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-bold text-stone-600">Gemini API 金鑰設定</label>
+                            <span class="text-[10px] text-emerald-600 flex items-center gap-1 font-semibold">
+                                <i class="fa-solid fa-circle-check"></i> 預覽免輸入(自動託管)
+                            </span>
+                        </div>
+                        <input type="password" id="userApiKey" placeholder="若在外部運行，請在此填入 API 金鑰..." 
+                               class="w-full px-2.5 py-1.5 text-xs bg-white border border-stone-200 rounded-md focus:outline-none focus:ring-1 focus:ring-[#8b5a2b] focus:border-[#8b5a2b]">
+                    </div>
+
+                    <form id="scenarioForm" class="space-y-4">
+                        <!-- Name input -->
+                        <div>
+                            <label class="block text-sm font-semibold text-stone-700 mb-1 flex items-center justify-between">
+                                <span>顧客姓名 <span class="text-stone-400 font-normal text-xs">(選填)</span></span>
+                                <span class="text-[11px] text-stone-400">客製專屬尊榮感</span>
+                            </label>
+                            <input type="text" id="custName" placeholder="例如：陳先生、小艾" 
+                                   class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-[#8b5a2b] focus:ring-1 focus:ring-[#8b5a2b]">
+                        </div>
+
+                        <!-- Elapsed Time -->
+                        <div>
+                            <label class="block text-sm font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-regular fa-clock text-stone-500"></i> 未結帳保留時間
+                            </label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="border-2 border-stone-200 rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer hover:border-[#8b5a2b] hover:bg-stone-50 transition-all [&:has(input:checked)]:border-[#8b5a2b] [&:has(input:checked)]:bg-[#FAF8F5]">
+                                    <input type="radio" name="unpaidTime" value="30m" checked class="sr-only">
+                                    <span class="text-sm font-bold text-stone-800">30 分鐘</span>
+                                    <span class="text-[10px] text-stone-500 mt-0.5">保留提醒 (溫和不打擾)</span>
+                                </label>
+                                <label class="border-2 border-stone-200 rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer hover:border-[#8b5a2b] hover:bg-stone-50 transition-all [&:has(input:checked)]:border-[#8b5a2b] [&:has(input:checked)]:bg-[#FAF8F5]">
+                                    <input type="radio" name="unpaidTime" value="3h" class="sr-only">
+                                    <span class="text-sm font-bold text-stone-800">3 小時</span>
+                                    <span class="text-[10px] text-stone-500 mt-0.5">特色加強 (風味故事)</span>
+                                </label>
+                                <label class="border-2 border-stone-200 rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer hover:border-[#8b5a2b] hover:bg-stone-50 transition-all [&:has(input:checked)]:border-[#8b5a2b] [&:has(input:checked)]:bg-[#FAF8F5]">
+                                    <input type="radio" name="unpaidTime" value="24h" class="sr-only">
+                                    <span class="text-sm font-bold text-stone-800">24 小時</span>
+                                    <span class="text-[10px] text-stone-500 mt-0.5">優惠折扣 (精準促銷)</span>
+                                </label>
+                                <label class="border-2 border-stone-200 rounded-lg p-2 flex flex-col items-center justify-center cursor-pointer hover:border-[#8b5a2b] hover:bg-stone-50 transition-all [&:has(input:checked)]:border-[#8b5a2b] [&:has(input:checked)]:bg-[#FAF8F5]">
+                                    <input type="radio" name="unpaidTime" value="48h" class="sr-only">
+                                    <span class="text-sm font-bold text-stone-800">48 小時</span>
+                                    <span class="text-[10px] text-stone-500 mt-0.5">最終關懷 (需求釐清)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Channel selection -->
+                        <div>
+                            <label class="block text-sm font-semibold text-stone-700 mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-share-nodes text-stone-500"></i> 預設提醒渠道
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" onclick="setChannel('line')" id="btnChannelLine" class="py-2 px-3 border-2 border-[#8b5a2b] bg-[#FAF8F5] text-[#2c1d11] rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all">
+                                    <i class="fa-brands fa-line text-emerald-500 text-lg"></i>
+                                    <span>LINE 訊息</span>
+                                </button>
+                                <button type="button" onclick="setChannel('email')" id="btnChannelEmail" class="py-2 px-3 border-2 border-stone-200 text-stone-600 rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all">
+                                    <i class="fa-solid fa-envelope text-blue-500 text-lg"></i>
+                                    <span>電子郵件</span>
+                                </button>
+                                <button type="button" onclick="setChannel('sms')" id="btnChannelSms" class="py-2 px-3 border-2 border-stone-200 text-stone-600 rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all">
+                                    <i class="fa-solid fa-comment-sms text-amber-500 text-lg"></i>
+                                    <span>手機簡訊</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Strategy Tone Style -->
+                        <div>
+                            <label class="block text-sm font-semibold text-stone-700 mb-1">AI 提醒行銷策略風格</label>
+                            <select id="marketingStyle" class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none focus:border-[#8b5a2b] focus:ring-1 focus:ring-[#8b5a2b]">
+                                <option value="soft">溫和貼心提醒 (保留通知、貼心無壓力)</option>
+                                <option value="feature">加強商品特色與風味故事 (深度描繪、引導體驗)</option>
+                                <option value="promo">官網現有優惠促購 (整合當前實體優惠條件)</option>
+                                <option value="last">最後親切關懷 (釐清困難、退換與客服指引)</option>
+                            </select>
+                        </div>
+
+                        <!-- Contain Promo toggle -->
+                        <div class="flex items-center justify-between p-3 bg-[#FAF8F5] rounded-lg border border-[#e3dac9]/60">
+                            <div>
+                                <span class="text-sm font-semibold text-stone-800 block">帶入商品專屬優惠</span>
+                                <span class="text-xs text-stone-500">僅利用 Word 檔案載明之現行優惠</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="includePromo" checked class="sr-only peer">
+                                <div class="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8b5a2b]"></div>
+                            </label>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Run Button -->
+                <div class="pt-4 mt-4 border-t border-stone-100">
+                    <button type="button" id="btnSubmitGenerate" onclick="generateReminders()" class="w-full py-3.5 bg-[#8b5a2b] hover:bg-[#6f4520] text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                        <span id="btnIcon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+                        <span id="btnText">產生 AI 提醒文案</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Column 3: Right - Copywriting and Preview Area (Span 4) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            <!-- Output Workspace -->
+            <div class="bg-white rounded-xl shadow-md border border-[#e3dac9] p-5 flex-grow flex flex-col relative overflow-hidden min-h-[480px]">
+                
+                <!-- Brew Coffee Loading screen -->
+                <div id="coffeeBrewLoader" class="absolute inset-0 bg-white/95 z-30 flex-col items-center justify-center gap-4 hidden">
+                    <div class="relative w-20 h-24 flex flex-col items-center">
+                        <i class="fa-solid fa-filter text-stone-400 text-4xl"></i>
+                        <div class="w-10 h-10 border-4 border-stone-300 border-t-[#8b5a2b] rounded-full animate-spin mt-2"></div>
+                        <i class="fa-solid fa-droplet text-[#8b5a2b] absolute bottom-2 text-sm animate-drip"></i>
+                    </div>
+                    <div class="text-center space-y-1">
+                        <p class="font-bold text-stone-800 text-sm">Gemini AI 風味烘焙中...</p>
+                        <p class="text-xs text-stone-400">正在依據選定商品與顧客情境，精準沖煮文案</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pb-2 border-b border-stone-100 mb-4">
+                    <h2 class="text-lg font-bold text-[#2c1d11] flex items-center gap-2">
+                        <i class="fa-solid fa-file-pen text-[#8b5a2b]"></i> 3. AI 文案工作區
+                    </h2>
+                    <span id="sourceBadge" class="bg-stone-100 text-stone-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-200">本地範本</span>
+                </div>
+
+                <!-- Tabs for generated text types -->
+                <div class="flex border-b border-stone-100 text-xs mb-3">
+                    <button onclick="switchTab('line')" id="tab_line" class="px-2 py-1.5 border-b-2 border-transparent font-semibold text-stone-500 focus:outline-none">LINE 訊息</button>
+                    <button onclick="switchTab('email')" id="tab_email" class="px-2 py-1.5 border-b-2 border-transparent font-semibold text-stone-500 focus:outline-none">Email 內文</button>
+                    <button onclick="switchTab('sms')" id="tab_sms" class="px-2 py-1.5 border-b-2 border-transparent font-semibold text-stone-500 focus:outline-none">簡訊</button>
+                    <button onclick="switchTab('faq')" id="tab_faq" class="px-2 py-1.5 border-b-2 border-transparent font-semibold text-stone-500 focus:outline-none">FAQ / 客服</button>
+                </div>
+
+                <!-- Copywriting Content Boxes -->
+                <div class="flex-grow space-y-3">
+                    
+                    <!-- LINE Section -->
+                    <div id="section_line" class="space-y-2 copy-section hidden">
+                        <label class="block text-xs font-bold text-stone-500">LINE 推薦文案</label>
+                        <textarea id="outputTextLine" readonly class="w-full h-32 p-3 text-sm bg-stone-50 border border-stone-200 rounded-lg resize-none focus:outline-none text-stone-700 leading-relaxed"></textarea>
+                        <button onclick="copyToClipboard('outputTextLine', 'LINE 訊息已複製到剪貼簿！')" class="w-full py-2 bg-[#f3ece0] hover:bg-[#ebdcc5] text-[#8b5a2b] font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors">
+                            <i class="fa-regular fa-copy"></i> 複製 LINE 訊息
+                        </button>
+                    </div>
+
+                    <!-- Email Section -->
+                    <div id="section_email" class="space-y-2 copy-section hidden">
+                        <div>
+                            <label class="block text-xs font-bold text-stone-500 mb-1">Email 推薦主旨</label>
+                            <input type="text" id="outputTextEmailSubject" readonly class="w-full p-2 text-sm bg-stone-50 border border-stone-200 rounded-lg focus:outline-none text-stone-700 font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-stone-500 mb-1">Email 完整內文</label>
+                            <textarea id="outputTextEmailBody" readonly class="w-full h-40 p-3 text-sm bg-stone-50 border border-stone-200 rounded-lg resize-none focus:outline-none text-stone-700 leading-relaxed"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="copyToClipboard('outputTextEmailSubject', 'Email 主旨已複製！')" class="py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors">
+                                <i class="fa-regular fa-copy"></i> 複製主旨
+                            </button>
+                            <button onclick="copyToClipboard('outputTextEmailBody', 'Email 內文已複製！')" class="py-2 bg-[#f3ece0] hover:bg-[#ebdcc5] text-[#8b5a2b] font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors">
+                                <i class="fa-regular fa-copy"></i> 複製電子郵件內文
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SMS Section -->
+                    <div id="section_sms" class="space-y-2 copy-section hidden">
+                        <label class="block text-xs font-bold text-stone-500">手機簡訊文案</label>
+                        <textarea id="outputTextSms" readonly class="w-full h-28 p-3 text-sm bg-stone-50 border border-stone-200 rounded-lg resize-none focus:outline-none text-stone-700 leading-relaxed"></textarea>
+                        <p class="text-[10px] text-stone-400 text-right" id="smsCount">字數計算中...</p>
+                        <button onclick="copyToClipboard('outputTextSms', '簡訊文案已複製！')" class="w-full py-2 bg-[#f3ece0] hover:bg-[#ebdcc5] text-[#8b5a2b] font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors">
+                            <i class="fa-regular fa-copy"></i> 複製簡訊文案
+                        </button>
+                    </div>
+
+                    <!-- FAQ Section -->
+                    <div id="section_faq" class="space-y-2 copy-section hidden">
+                        <label class="block text-xs font-bold text-stone-500">FAQ 自動客服小助手</label>
+                        <div class="bg-[#FAF8F5] p-3 rounded-lg border border-[#e3dac9]/60 space-y-2 text-xs">
+                            <div>
+                                <span class="font-bold text-stone-700">顧客可能問法：</span>
+                                <p id="faqQuestion" class="italic text-stone-600 mt-0.5">「」</p>
+                            </div>
+                            <div>
+                                <span class="font-bold text-stone-700">AI 推薦回覆：</span>
+                                <p id="faqAnswer" class="text-stone-700 mt-0.5 leading-relaxed bg-white p-2 rounded border border-stone-100"></p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center py-1">
+                            <div class="p-2 bg-emerald-50 rounded border border-emerald-100">
+                                <span class="block text-[10px] text-emerald-600 font-bold">適合自動回覆</span>
+                                <span id="autoReplyStatus" class="text-xs font-semibold text-emerald-800">可以</span>
+                            </div>
+                            <div class="p-2 bg-amber-50 rounded border border-amber-100">
+                                <span class="block text-[10px] text-amber-600 font-bold">人工介入時機</span>
+                                <span id="humanIntervene" class="text-xs font-semibold text-amber-800">詢問客製磨粉度</span>
+                            </div>
+                        </div>
+                        <button onclick="copyToClipboard('faqAnswer', '客服回覆已複製！')" class="w-full py-1.5 bg-[#f3ece0] hover:bg-[#ebdcc5] text-[#8b5a2b] font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition-colors">
+                            <i class="fa-regular fa-copy"></i> 複製客服建議回答
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Custom Clip Alert Message -->
+                <div id="clipAlert" class="hidden mt-2 p-2 bg-emerald-100 text-emerald-800 text-xs font-medium rounded text-center animate-fade-in flex items-center justify-center gap-1">
+                    <i class="fa-regular fa-circle-check"></i> <span id="clipAlertText">複製成功</span>
+                </div>
+
+                <!-- Preview Box container -->
+                <div class="mt-4 pt-4 border-t-2 border-dashed border-[#e3dac9]">
+                    <span class="block text-xs font-bold text-stone-500 mb-2 flex items-center justify-between">
+                        <span>📱 顧客手機預覽效果 (渠道：<span id="previewChannelLabel" class="text-[#8b5a2b]">LINE</span>)</span>
+                        <span class="text-[10px] text-stone-400 font-normal">模擬真實接收畫面</span>
+                    </span>
+
+                    <div id="phoneScreen" class="bg-stone-100 border-8 border-stone-800 rounded-2xl p-3 h-52 overflow-y-auto flex flex-col relative shadow-inner">
+                        <!-- Simulated status bar -->
+                        <div class="text-[9px] text-stone-500 flex justify-between px-1 mb-2">
+                            <span>09:41</span>
+                            <div class="space-x-1">
+                                <i class="fa-solid fa-wifi"></i>
+                                <i class="fa-solid fa-battery-three-quarters"></i>
+                            </div>
+                        </div>
+
+                        <!-- LINE PREVIEW -->
+                        <div id="preview_line_wrapper" class="flex-grow flex flex-col hidden">
+                            <div class="flex items-start gap-2 text-xs">
+                                <div class="w-7 h-7 rounded-full bg-[#2c1d11] text-[#f7f5f0] flex items-center justify-center font-bold text-[9px] shrink-0 border border-[#8b5a2b]">
+                                    咖啡
+                                </div>
+                                <div class="max-w-[80%] flex flex-col gap-1">
+                                    <span class="text-[10px] text-stone-500 font-bold">極致醇香咖啡館</span>
+                                    <div class="bg-white p-2.5 rounded-r-xl rounded-bl-xl text-[11px] leading-relaxed text-stone-800 shadow-sm relative border border-stone-200">
+                                        <p id="preview_line_text" class="whitespace-pre-wrap">您好，您的商品還在購物車等您唷！</p>
+                                    </div>
+                                    <div class="mt-1.5 self-start w-full">
+                                        <a href="#" onclick="return false;" class="block w-full text-center py-1.5 bg-[#8b5a2b] hover:bg-[#6f4520] text-white text-[10px] font-bold rounded-md shadow-sm">
+                                            🛒 前往購物車結帳
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EMAIL PREVIEW -->
+                        <div id="preview_email_wrapper" class="flex-grow flex flex-col bg-white rounded-lg p-2.5 shadow-sm border border-stone-200 text-xs hidden overflow-y-auto">
+                            <div class="border-b border-stone-100 pb-1 mb-2">
+                                <div class="flex items-center gap-1 mb-0.5">
+                                    <span class="text-stone-400 font-bold text-[10px]">寄件者：</span>
+                                    <span class="text-stone-700 font-semibold text-[10px]">極致醇香咖啡館 &lt;service@coffeelover.com&gt;</span>
+                                </div>
+                                <div class="flex items-start gap-1">
+                                    <span class="text-stone-400 font-bold text-[10px] shrink-0">主旨：</span>
+                                    <span id="preview_email_subject" class="text-[#8b5a2b] font-bold text-[10px]"></span>
+                                </div>
+                            </div>
+                            <div class="flex-grow text-[10px] text-stone-600 leading-relaxed whitespace-pre-wrap" id="preview_email_body"></div>
+                            <div class="mt-3 text-center border-t border-stone-100 pt-2">
+                                <a href="#" onclick="return false;" class="inline-block px-4 py-1.5 bg-[#8b5a2b] text-white font-bold text-[10px] rounded shadow">
+                                    返回購物車一鍵結帳
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- SMS PREVIEW -->
+                        <div id="preview_sms_wrapper" class="flex-grow flex flex-col justify-end hidden">
+                            <div class="self-end max-w-[85%] bg-[#007aff] text-white p-2.5 rounded-l-xl rounded-tr-xl text-[11px] leading-relaxed shadow-sm">
+                                <p id="preview_sms_text" class="whitespace-pre-wrap"></p>
+                            </div>
+                            <span class="text-[9px] text-stone-400 self-end mt-1 mr-1">簡訊傳送</span>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Visual Interactive Prompt Viewer section -->
+    <section class="max-w-7xl w-full mx-auto px-4 pb-6">
+        <div class="bg-white rounded-2xl shadow-md border border-[#e3dac9] p-5">
+            <div class="flex items-center justify-between pb-2 border-b border-stone-100 mb-3">
+                <h3 class="font-bold text-stone-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-code text-purple-600"></i> AI 提示詞與思維鏈檢視面板 (教育教學專用)
+                </h3>
+                <span class="text-[10px] text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">聯網即時模型：gemini-3-flash-preview</span>
+            </div>
+            <p class="text-xs text-stone-500 mb-3 leading-relaxed">此面板動態揭露發送給大語言模型 (LLM) 的指令。行銷與工程人員可在此了解如何利用「系統角色 (System Instruction)」限制 AI 風格並保護品牌形象安全，防止產生幻覺（如捏造優惠）。</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-1">
+                    <span class="block text-[11px] font-bold text-purple-700 bg-purple-50/50 p-1.5 rounded">⚙️ 系統核心約束 (System Instruction)</span>
+                    <pre id="displaySystemPrompt" class="bg-stone-50 border border-stone-200 rounded-lg p-3 text-[10px] text-stone-600 h-44 overflow-y-auto whitespace-pre-wrap font-mono"></pre>
+                </div>
+                <div class="space-y-1">
+                    <span class="block text-[11px] font-bold text-blue-700 bg-blue-50/50 p-1.5 rounded">👤 顧客狀態與商品資料 (User Prompt Payload)</span>
+                    <pre id="displayUserPrompt" class="bg-stone-50 border border-stone-200 rounded-lg p-3 text-[10px] text-stone-600 h-44 overflow-y-auto whitespace-pre-wrap font-mono"></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom Section: AI explanation & Education Card -->
+    <section class="max-w-7xl w-full mx-auto px-4 pb-12">
+        <div class="bg-gradient-to-br from-[#2c1d11] to-[#4e3621] text-white rounded-2xl shadow-xl p-6 md:p-8">
+            <h2 class="text-xl md:text-2xl font-black mb-4 flex items-center gap-2 text-[#ebdcc5]">
+                <i class="fa-solid fa-brain"></i> AI 在此流程中可以協助什麼？
+            </h2>
+            <p class="text-stone-300 text-sm mb-6 max-w-3xl leading-relaxed">
+                在傳統的電商流程中，遺棄購物車（Cart Abandonment）是一大痛點。通常發送的罐頭簡訊效果不彰。
+                本 APP 展示了 AI 如何在保障「不造假、不欺騙、尊重產品真實屬性」的前提下，結合商品精確規格，提供多渠道的貼心提示。
+            </p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white/5 p-4 rounded-xl border border-white/10 hover:border-white/20 transition-all">
+                    <div class="text-2xl mb-2">📝</div>
+                    <h3 class="font-bold text-sm text-[#ebdcc5] mb-1">根據商品特質自動生成文案</h3>
+                    <p class="text-xs text-stone-300 leading-relaxed">
+                        從上傳的商品特色中，AI 自動抓取像是「花香莓果調」、「焦糖苦甜」等細緻特質，轉化成高度關聯的專屬提醒，不再只是枯燥的「您有未結帳商品」。
+                    </p>
+                </div>
+                <div class="bg-white/5 p-4 rounded-xl border border-white/10 hover:border-white/20 transition-all">
+                    <div class="text-2xl mb-2">⏱️</div>
+                    <h3 class="font-bold text-sm text-[#ebdcc5] mb-1">依照未結帳時間調整溝通語氣</h3>
+                    <p class="text-xs text-stone-300 leading-relaxed">
+                        前 30 分鐘採用輕微、不催促、幫忙「暫時保留」的溫和語氣；24 小時則帶入具體的優惠條件促購；48 小時轉為關懷回饋，體現優雅的品牌溫度。
+                    </p>
+                </div>
+                <div class="bg-white/5 p-4 rounded-xl border border-white/10 hover:border-white/20 transition-all">
+                    <div class="text-2xl mb-2">❓</div>
+                    <h3 class="font-bold text-sm text-[#ebdcc5] mb-1">精確整合 FAQ 降低猶豫</h3>
+                    <p class="text-xs text-stone-300 leading-relaxed">
+                        顧客未結帳常因為心中有疑慮（如：酸不酸、要怎麼選研磨度等），AI 在提醒中直接呈現對應的 FAQ 指引，為顧客解答最後一步的疑問。
+                    </p>
+                </div>
+                <div class="bg-white/5 p-4 rounded-xl border border-white/10 hover:border-white/20 transition-all">
+                    <div class="text-2xl mb-2">⚡</div>
+                    <h3 class="font-bold text-sm text-[#ebdcc5] mb-1">提高行銷與客服人員生產力</h3>
+                    <p class="text-xs text-stone-300 leading-relaxed">
+                        一鍵生成多種常用渠道（LINE、Email、簡訊、客服預備回覆），並提供清晰的「人工介入時機」指示，讓機器與人類完美分工協作。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- JavaScript Data and Functions -->
+    <script>
+        // 1. 內建 10 筆來自 Word 的真實商品規格資料
+        const coffeeProducts = [
+            {
+                id: 1,
+                name: "中深焙經典配方咖啡豆",
+                feature: "低酸、堅果香、黑巧克力尾韻；適合日常黑咖啡與拿鐵",
+                price: "NT$450 / 半磅",
+                promo: "滿 999 免運；限時 9 折",
+                delivery: "2–3 個工作天出貨",
+                storage: "開封後建議 2–4 週內飲用",
+                faq: "酸不酸？適合新手嗎？可以做冰咖啡嗎？",
+                faq_answer: "經典配方屬於低酸度，有著溫潤的堅果與黑巧克力尾韻，非常適合日常黑咖啡或拿鐵的新手。做成冰咖啡也口感醇厚喔！",
+                tone: "親切、專業、不過度推銷",
+                auto_reply: "可以自動回覆",
+                human_intervention: "若顧客需加購客製磨豆機或搭配特殊器具"
+            },
+            {
+                id: 2,
+                name: "淺焙衣索比亞日曬咖啡豆",
+                feature: "莓果香、花香、明亮果酸；適合喜歡層次感的顧客",
+                price: "NT$580 / 半磅",
+                promo: "第二件 95 折；會員點數 2 倍",
+                delivery: "接單後烘焙，約 3–5 個工作天出貨",
+                storage: "未開封 3 個月；開封後 2–3 週內飲用",
+                faq: "會不會太酸？適合手沖嗎？研磨度怎麼選？",
+                faq_answer: "此款為淺焙，帶有迷人的明亮果酸與花香層次，非常適合手沖。若不習慣酸度，建議可搭配適當水溫與研磨度引出其甜感！",
+                tone: "專業、清楚、引導式推薦",
+                auto_reply: "可自動回覆基本研磨建議",
+                human_intervention: "顧客詢問特殊沖煮器材搭配(如愛樂壓、法式濾壓)"
+            },
+            {
+                id: 3,
+                name: "深焙義式拿鐵專用咖啡豆",
+                feature: "濃郁可可、焦糖苦甜、厚實油脂感；適合牛奶飲品",
+                price: "NT$420 / 半磅",
+                promo: "滿 2 包折 NT$80；滿額免運",
+                delivery: "2–3 個工作天出貨",
+                storage: "避免高溫潮濕；開封後請密封保存",
+                faq: "適合義式機嗎？加牛奶會不會被蓋過？",
+                faq_answer: "專為加奶設計！極具厚實的油脂感與焦糖苦甜，與牛奶融合能完美襯托可可香氣，絕對不擔心風味被牛奶蓋過。",
+                tone: "直接、穩定、強調適用情境",
+                auto_reply: "可以自動回覆",
+                human_intervention: "詢問營業用咖啡機參數調整"
+            },
+            {
+                id: 4,
+                name: "冰釀冷萃濾掛咖啡包",
+                feature: "低苦感、清爽、適合冷泡；單包即沖即飲",
+                price: "NT$360 / 10 入",
+                promo: "夏季限定 88 折；買 2 盒免運",
+                delivery: "1–2 個工作天出貨",
+                storage: "常溫陰涼保存；開封後請儘速使用",
+                faq: "可以冷泡多久？需要熱水嗎？一包可泡多少水？",
+                faq_answer: "不需要熱水，直接放入常溫水或冷水中，冷藏靜置 8-12 小時即可享受清爽冰釀。一包建議沖泡 150-200ml 水。",
+                tone: "輕鬆、清爽、生活化",
+                auto_reply: "可以自動回覆",
+                human_intervention: "大宗團購或需要特殊客製包裝"
+            },
+            {
+                id: 5,
+                name: "掛耳綜合體驗組",
+                feature: "一次體驗淺焙、中焙、深焙；適合選味道與送禮",
+                price: "NT$399 / 12 入",
+                promo: "新客首購折 NT$50；滿 888 免運",
+                delivery: "2–3 個工作天出貨",
+                storage: "單包獨立包裝，避免陽光直射",
+                faq: "不知道要選哪款怎麼辦？可以送禮嗎？",
+                faq_answer: "綜合組包含不同焙度的風味，能讓您輕鬆探索最愛。獨立質感包裝也非常適合做為心意送禮，能附上小卡喔！",
+                tone: "親切、降低選擇壓力",
+                auto_reply: "可以自動回覆",
+                human_intervention: "需要大量送禮卡片內容客製化"
+            },
+            {
+                id: 6,
+                name: "無咖啡因哥倫比亞咖啡豆",
+                feature: "低咖啡因、焦糖甜感、柔和堅果調；適合晚間飲用",
+                price: "NT$520 / 半磅",
+                promo: "會員專屬 95 折；滿 999 免運",
+                delivery: "3–4 個工作天出貨",
+                storage: "開封後建議 2–4 週內飲用",
+                faq: "真的沒有咖啡因嗎？孕婦可以喝嗎？晚上喝會睡不著嗎？",
+                faq_answer: "此款採用天然溫和方式去除咖啡因，焦糖甜感柔和。我們盡力確保極低咖啡因成分。孕婦飲用建議遵照您的醫師醫囑更安心。",
+                tone: "謹慎、清楚、不做醫療承諾",
+                auto_reply: "可以部分回覆(說明去咖啡因工藝)",
+                human_intervention: "顧客詢問詳細醫學相關疑慮時(委婉建議諮詢醫師)"
+            },
+            {
+                id: 7,
+                name: "精品咖啡新手入門禮盒",
+                feature: "含咖啡豆、濾掛包與沖煮小卡；適合第一次購買",
+                price: "NT$899 / 組",
+                promo: "贈送品牌提袋；滿額免運",
+                delivery: "3–5 個工作天出貨",
+                storage: "禮盒置於陰涼處；咖啡豆開封後密封保存",
+                faq: "新手需要買磨豆機嗎？禮盒內容有哪些？",
+                faq_answer: "禮盒貼心包含磨好的濾掛包與咖啡豆，並附贈詳細的沖煮教學小卡。如果您沒有磨豆機，我們也可以提供免費研磨服務！",
+                tone: "溫和、教學型、降低門檻",
+                auto_reply: "可以自動回覆內容清單",
+                human_intervention: "欲客製更動禮盒內咖啡口味搭配"
+            },
+            {
+                id: 8,
+                name: "辦公室大包量咖啡豆",
+                feature: "穩定中焙、接受度高、適合多人共用與美式咖啡機",
+                price: "NT$1,280 / 1 公斤",
+                promo: "企業採購滿 3 包另享優惠",
+                delivery: "2–4 個工作天出貨",
+                storage: "建議分裝密封；避免頻繁開合大包裝",
+                faq: "適合辦公室機器嗎？一公斤可以喝多久？",
+                faq_answer: "本款為接受度最高的中焙風味，極適合美式咖啡機與全自動咖啡機。一公斤約可沖煮 50-60 杯咖啡，適合辦公室一週共享。",
+                tone: "專業、效率導向、重視穩定",
+                auto_reply: "可以自動回覆基礎用量計算",
+                human_intervention: "索取正式企業報價單與統編報帳程序"
+            },
+            {
+                id: 9,
+                name: "季節限定果香配方咖啡豆",
+                feature: "柑橘、蜂蜜、茶感尾韻；適合喜歡清爽風味者",
+                price: "NT$620 / 半磅",
+                promo: "限量批次；滿 999 免運",
+                delivery: "接單後依批次出貨，約 3–5 個工作天",
+                storage: "建議於最佳賞味期內飲用；開封後密封",
+                faq: "會很酸嗎？跟經典配方差在哪？售完還會補貨嗎？",
+                faq_answer: "此為微酸清香茶感，與經典配方的黑巧克力偏苦感截然不同。本款為季節限量豆，售完即需等待下個產季，建議及早下單。",
+                tone: "精緻、限定感、避免過度承諾",
+                auto_reply: "可自動回覆兩者差異說明",
+                human_intervention: "詢問確切批次完售時間或預留豆子"
+            },
+            {
+                id: 10,
+                name: "單品手沖咖啡禮盒",
+                feature: "三款單品豆組合，附風味卡；適合送禮",
+                price: "NT$1,180 / 組",
+                promo: "節慶預購免運；可加購禮袋",
+                delivery: "節日前建議提早 5–7 個工作天下單",
+                storage: "未開封請陰涼保存；開封後分別密封",
+                faq: "可以指定口味嗎？可寫祝福卡嗎？多久會到？",
+                faq_answer: "禮盒提供精選三款黃金組合。我們有提供加購手寫祝福小卡片服務！出貨約需 5-7 個工作天，建議提前下訂以免趕不及節慶喔。",
+                tone: "禮貌、細緻、重視送禮情境",
+                auto_reply: "可自動回覆祝福卡加購規範",
+                human_intervention: "處理送達指定收件人以及多點配送需求"
+            }
+        ];
+
+        // State variables
+        let selectedProductId = 1;
+        let activeTab = 'line';
+        let currentChannel = 'line';
+        let generationMode = 'local'; // 'local' or 'gemini'
+
+        // Elements
+        const productListContainer = document.getElementById('productListContainer');
+        const productSearchInput = document.getElementById('productSearch');
+        const detailName = document.getElementById('detailName');
+        const detailPrice = document.getElementById('detailPrice');
+        const detailPromo = document.getElementById('detailPromo');
+        const detailFeature = document.getElementById('detailFeature');
+        const detailDelivery = document.getElementById('detailDelivery');
+        const detailStorage = document.getElementById('detailStorage');
+        const detailTone = document.getElementById('detailTone');
+        const custNameInput = document.getElementById('custName');
+        const marketingStyleSelect = document.getElementById('marketingStyle');
+        const includePromoCheckbox = document.getElementById('includePromo');
+
+        // Output fields
+        const outputTextLine = document.getElementById('outputTextLine');
+        const outputTextEmailSubject = document.getElementById('outputTextEmailSubject');
+        const outputTextEmailBody = document.getElementById('outputTextEmailBody');
+        const outputTextSms = document.getElementById('outputTextSms');
+        const smsCount = document.getElementById('smsCount');
+        const faqQuestion = document.getElementById('faqQuestion');
+        const faqAnswer = document.getElementById('faqAnswer');
+        const autoReplyStatus = document.getElementById('autoReplyStatus');
+        const humanIntervene = document.getElementById('humanIntervene');
+
+        // Phone Previews
+        const previewChannelLabel = document.getElementById('previewChannelLabel');
+        const previewLineText = document.getElementById('preview_line_text');
+        const previewEmailSubject = document.getElementById('preview_email_subject');
+        const previewEmailBody = document.getElementById('preview_email_body');
+        const previewSmsText = document.getElementById('preview_sms_text');
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            renderProductList(coffeeProducts);
+            selectProduct(1);
+            updatePromptsInspector();
+        });
+
+        // Set generation mode
+        function setGenerationMode(mode) {
+            generationMode = mode;
+            const btnLocal = document.getElementById('btnModeLocal');
+            const btnGemini = document.getElementById('btnModeGemini');
+            const apiPanel = document.getElementById('apiConfigPanel');
+            const sourceBadge = document.getElementById('sourceBadge');
+
+            if (mode === 'local') {
+                btnLocal.className = "flex-1 text-center py-1.5 rounded-md text-xs font-bold transition-all bg-white text-[#8b5a2b] shadow-sm";
+                btnGemini.className = "flex-1 text-center py-1.5 rounded-md text-xs font-bold transition-all text-stone-600 hover:text-stone-900";
+                apiPanel.classList.add('hidden');
+                sourceBadge.innerText = "本地範本";
+                sourceBadge.className = "bg-stone-100 text-stone-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-stone-200";
+            } else {
+                btnLocal.className = "flex-1 text-center py-1.5 rounded-md text-xs font-bold transition-all text-stone-600 hover:text-stone-900";
+                btnGemini.className = "flex-1 text-center py-1.5 rounded-md text-xs font-bold transition-all bg-white text-purple-700 shadow-sm";
+                apiPanel.classList.remove('hidden');
+                sourceBadge.innerText = "Gemini AI";
+                sourceBadge.className = "bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-200";
+            }
+            generateReminders();
+        }
+
+        // Render products
+        function renderProductList(products) {
+            productListContainer.innerHTML = '';
+            products.forEach(p => {
+                const isActive = p.id === selectedProductId;
+                const activeClasses = isActive 
+                    ? 'border-[#8b5a2b] bg-[#FAF8F5]' 
+                    : 'border-stone-200 hover:border-stone-300 bg-white';
+                
+                const item = document.createElement('div');
+                item.className = `p-3 border-2 rounded-lg cursor-pointer transition-all ${activeClasses}`;
+                item.id = `prod-item-${p.id}`;
+                item.onclick = () => selectProduct(p.id);
+
+                item.innerHTML = `
+                    <div class="flex justify-between items-start gap-1">
+                        <span class="font-bold text-xs text-[#2c1d11] line-clamp-1">${p.name}</span>
+                        <span class="text-[11px] font-black text-[#8b5a2b] shrink-0">${p.price.split(' ')[0]}</span>
+                    </div>
+                    <p class="text-[10px] text-stone-500 line-clamp-1 mt-1">${p.feature}</p>
+                    <div class="flex justify-between items-center mt-1.5 text-[9px]">
+                        <span class="text-[#8b5a2b] bg-[#FAF8F5] px-1.5 py-0.5 rounded border border-[#8b5a2b]/20 font-medium">${p.tone.split('、')[0]}</span>
+                        <span class="text-stone-400"><i class="fa-solid fa-truck-fast"></i> ${p.delivery.replace('工作天出貨', '')}</span>
+                    </div>
+                `;
+                productListContainer.appendChild(item);
+            });
+            document.getElementById('productCount').innerText = `${products.length} 筆商品`;
+        }
+
+        // Search Filter
+        productSearchInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const filtered = coffeeProducts.filter(p => 
+                p.name.toLowerCase().includes(val) || 
+                p.feature.toLowerCase().includes(val) ||
+                p.faq.toLowerCase().includes(val)
+            );
+            renderProductList(filtered);
+        });
+
+        // Select Product
+        function selectProduct(id) {
+            selectedProductId = id;
+            
+            // Remove previous active outline
+            coffeeProducts.forEach(p => {
+                const elem = document.getElementById(`prod-item-${p.id}`);
+                if (elem) {
+                    elem.className = `p-3 border-2 rounded-lg cursor-pointer transition-all ${p.id === id ? 'border-[#8b5a2b] bg-[#FAF8F5]' : 'border-stone-200 hover:border-stone-300 bg-white'}`;
+                }
+            });
+
+            const prod = coffeeProducts.find(p => p.id === id);
+            if (prod) {
+                detailName.innerText = prod.name;
+                detailPrice.innerText = prod.price;
+                detailPromo.innerText = prod.promo || "請補充資料";
+                detailFeature.innerText = prod.feature || "請補充資料";
+                detailDelivery.innerText = prod.delivery || "請補充資料";
+                detailStorage.innerText = prod.storage || "請補充資料";
+                detailTone.innerText = `語氣：${prod.tone}`;
+
+                // Sync UI and auto regenerate text
+                generateReminders();
+            }
+        }
+
+        // Channel Switching Control
+        function setChannel(channel) {
+            currentChannel = channel;
+            
+            const btnLine = document.getElementById('btnChannelLine');
+            const btnEmail = document.getElementById('btnChannelEmail');
+            const btnSms = document.getElementById('btnChannelSms');
+
+            // Reset classes
+            [btnLine, btnEmail, btnSms].forEach(btn => {
+                btn.className = "py-2 px-3 border-2 border-stone-200 text-stone-600 rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all";
+            });
+
+            // Set active
+            if (channel === 'line') {
+                btnLine.className = "py-2 px-3 border-2 border-[#8b5a2b] bg-[#FAF8F5] text-[#2c1d11] rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all";
+                switchTab('line');
+            } else if (channel === 'email') {
+                btnEmail.className = "py-2 px-3 border-2 border-[#8b5a2b] bg-[#FAF8F5] text-[#2c1d11] rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all";
+                switchTab('email');
+            } else if (channel === 'sms') {
+                btnSms.className = "py-2 px-3 border-2 border-[#8b5a2b] bg-[#FAF8F5] text-[#2c1d11] rounded-lg text-sm font-bold flex flex-col items-center gap-1 hover:bg-stone-50 transition-all";
+                switchTab('sms');
+            }
+            
+            syncPreviewVisibility();
+        }
+
+        // Tab Switching control in Work Area
+        function switchTab(tabId) {
+            activeTab = tabId;
+            
+            // UI tabs highlight
+            ['line', 'email', 'sms', 'faq'].forEach(t => {
+                const tabBtn = document.getElementById(`tab_${t}`);
+                if (tabBtn) {
+                    if (t === tabId) {
+                        tabBtn.className = "px-2 py-1.5 border-b-2 border-[#8b5a2b] font-bold text-[#8b5a2b] focus:outline-none";
+                    } else {
+                        tabBtn.className = "px-2 py-1.5 border-b-2 border-transparent font-semibold text-stone-500 focus:outline-none hover:text-stone-700";
+                    }
+                }
+            });
+
+            // Show sections
+            ['line', 'email', 'sms', 'faq'].forEach(t => {
+                const sec = document.getElementById(`section_${t}`);
+                if (sec) {
+                    if (t === tabId) {
+                        sec.classList.remove('hidden');
+                    } else {
+                        sec.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Sync visual preview channel based on user tab selection (for interactive ease)
+            if (tabId !== 'faq') {
+                document.getElementById('previewChannelLabel').innerText = tabId.toUpperCase();
+                syncPreviewVisibility(tabId);
+            } else {
+                // If faq, fallback preview label to current main channel setting
+                document.getElementById('previewChannelLabel').innerText = currentChannel.toUpperCase();
+                syncPreviewVisibility(currentChannel);
+            }
+        }
+
+        function syncPreviewVisibility(targetChannel = currentChannel) {
+            document.getElementById('preview_line_wrapper').classList.add('hidden');
+            document.getElementById('preview_email_wrapper').classList.add('hidden');
+            document.getElementById('preview_sms_wrapper').classList.add('hidden');
+
+            if (targetChannel === 'line') {
+                document.getElementById('preview_line_wrapper').classList.remove('hidden');
+            } else if (targetChannel === 'email') {
+                document.getElementById('preview_email_wrapper').classList.remove('hidden');
+            } else if (targetChannel === 'sms') {
+                document.getElementById('preview_sms_wrapper').classList.remove('hidden');
+            }
+        }
+
+        // Update the prompt inspector view (Dynamic payload display)
+        function updatePromptsInspector() {
+            const prod = coffeeProducts.find(p => p.id === selectedProductId);
+            if (!prod) return;
+
+            const name = custNameInput.value.trim() || "顧客";
+            const unpaidTime = document.querySelector('input[name="unpaidTime"]:checked').value;
+            const style = marketingStyleSelect.value;
+            const usePromo = includePromoCheckbox.checked;
+
+            const sysPrompt = `你是一位世界級的電商與咖啡文案大師。你負責為「極致醇香咖啡館」撰寫加入購物車但尚未結帳的溫和提醒訊息。
+1. 嚴格遵守：不造假、不欺騙、尊重產品真實屬性。
+2. 絕對不能自行編造或幻想商品價格、現行優惠、包裝等細節。只能使用 User 提供之 JSON 資料。
+3. 文案風格：繁體中文、高質感、親切溫和、不製造壓迫感或虛假的庫存稀缺。
+4. 當「帶入商品專屬優惠」開啟時，才可提及優惠；關閉時，不得編造或提及。`;
+
+            const userPrompt = {
+                targetProduct: {
+                    name: prod.name,
+                    feature: prod.feature,
+                    price: prod.price,
+                    promo: usePromo ? prod.promo : "此階段不套用商品促銷優惠",
+                    delivery: prod.delivery,
+                    storage: prod.storage,
+                    brandTone: prod.tone,
+                    faqText: prod.faq,
+                    faqAnswer: prod.faq_answer
+                },
+                customerProfile: {
+                    name: name,
+                    unpaidElapsedTime: unpaidTime,
+                    selectedStyle: style
+                }
+            };
+
+            document.getElementById('displaySystemPrompt').innerText = sysPrompt;
+            document.getElementById('displayUserPrompt').innerText = JSON.stringify(userPrompt, null, 2);
+        }
+
+        // Generate Reminders Entry Point
+        function generateReminders() {
+            // Update prompt display panel simultaneously
+            updatePromptsInspector();
+
+            if (generationMode === 'local') {
+                generateLocalReminders();
+            } else {
+                generateGeminiReminders();
+            }
+        }
+
+        // Local Rule-Based Reminders Generation
+        function generateLocalReminders() {
+            const prod = coffeeProducts.find(p => p.id === selectedProductId);
+            if (!prod) return;
+
+            const name = custNameInput.value.trim() || "顧客";
+            const unpaidTime = document.querySelector('input[name="unpaidTime"]:checked').value;
+            const style = marketingStyleSelect.value;
+            const usePromo = includePromoCheckbox.checked;
+
+            // Extract core product values safely
+            const prodName = prod.name;
+            const prodFeature = prod.feature;
+            const prodPrice = prod.price;
+            const prodPromo = usePromo ? prod.promo : "";
+            const prodDelivery = prod.delivery;
+            const prodStorage = prod.storage;
+            const prodTone = prod.tone;
+
+            // Define dynamic copywriting parts based on Time Rules
+            let timeSalutation = "";
+            let coreMessage = "";
+            let benefitPush = "";
+
+            if (unpaidTime === '30m') {
+                timeSalutation = `剛剛在忙嗎？您挑選的美味咖啡還在為您妥善保留中 ☕️`;
+                coreMessage = `我們發現您把高品質的「${prodName}」裝進購物車了。別擔心，購物車已經為您暫時保留，方便您隨時回來結帳。`;
+                benefitPush = `在忙碌的日子裡，也別忘了留給自己一杯手作咖啡的悠閒時光。`;
+            } 
+            else if (unpaidTime === '3h') {
+                timeSalutation = `忙碌之餘，來杯「${prodName}」享受片刻極致香氣吧 ✨`;
+                coreMessage = `為您推薦您所關注的這款單品，它具有：${prodFeature}。出貨進度約 ${prodDelivery}，讓美味風味不留遺憾。`;
+                if (prodStorage) {
+                    benefitPush = `小提示：${prodStorage}，享受新鮮研磨的最佳口感！`;
+                }
+            } 
+            else if (unpaidTime === '24h') {
+                timeSalutation = `專屬您的咖啡香：這份猶豫可以由優惠來融化 🎁`;
+                coreMessage = `您加入購物車的「${prodName}」深受大家喜愛。貼心提醒您：${prodPromo ? '此品項正享有優惠：' + prodPromo + '！' : '若符合本館滿額優惠條件，可享全館滿額免運服務，'}新鮮的風味即將為您進行烘焙。`;
+                benefitPush = `出貨天數約為 ${prodDelivery}，趕緊點擊以下結帳鏈結，開啟您的晨間咖啡香！`;
+            } 
+            else if (unpaidTime === '48h') {
+                timeSalutation = `貼心最後提醒：要為您保留這份美好滋味嗎？💌`;
+                coreMessage = `我們明白您在挑選適合自己的咖啡風味。您前天保留的「${prodName}」還在等著為您效勞。`;
+                benefitPush = `若您有任何沖煮疑問、包裝需求或在風味上感到猶豫，請別客氣隨時回覆本訊息，或直接聯繫我們專業的咖啡客服團隊，我們會親切與您共同討論。`;
+            }
+
+            // Apply brand tone customizer
+            let toneCloser = "敬祝 順心，享受美好的一天。";
+            if (prodTone.includes("輕鬆")) {
+                toneCloser = "祝你今天也有個充滿咖啡香的清爽好心情！☕️";
+            } else if (prodTone.includes("謹慎") || prodTone.includes("直接")) {
+                toneCloser = "極致醇香咖啡館 敬上";
+            } else if (prodTone.includes("溫和") || prodTone.includes("親切")) {
+                toneCloser = "期待為您奉上最溫暖的新鮮風味。";
+            }
+
+            // LINE Template
+            let lineTxt = `${name}您好！${timeSalutation}\n\n🛒 ${prodName}\n${coreMessage}\n\n${benefitPush}\n\n👇點擊下方連結一鍵結帳，享受美好時光！\n👉 [返回購物車]`;
+            outputTextLine.value = lineTxt;
+
+            // Email Template
+            let emailSub = `【極致醇香咖啡館】${timeSalutation.replace(' ☕️','').replace(' ✨','')}`;
+            let emailBody = `${name} 您好：\n\n感謝您對我們咖啡工坊的支持。${timeSalutation}\n\n您在購物車內保留的商品：\n👉【${prodName}】\n價格：${prodPrice}\n特色描述：${prodFeature}\n\n${coreMessage}\n\n${benefitPush}\n\n我們提供最佳保存指引：${prodStorage}，並預計在下單後 ${prodDelivery} 配送。\n\n期待這包完美烘焙的豆子能伴隨您的每日早晨。\n\n一鍵返回購物車結帳：\n🔗 [點擊返回極致醇香購物車]\n\n${toneCloser}`;
+            
+            outputTextEmailSubject.value = emailSub;
+            outputTextEmailBody.value = emailBody;
+
+            // SMS Template (highly concise)
+            let smsTxt = `【極致咖啡】${name}您好，您購物車的「${prodName}」正為您妥善保留。${prodPromo ? prodPromo : '新鮮風味不等待'}，配送約 ${prodDelivery}。點此一鍵結帳：https://bit.ly/coffee-checkout`;
+            outputTextSms.value = smsTxt;
+            smsCount.innerText = `目前字數：${smsTxt.length} 字 (約 1 則簡訊扣額)`;
+
+            // FAQ section update
+            faqQuestion.innerText = `「${prod.faq.split('？')[0]}？」`;
+            faqAnswer.innerText = prod.faq_answer;
+            autoReplyStatus.innerText = prod.auto_reply;
+            humanIntervene.innerText = prod.human_intervention;
+
+            // Update Mobile Preview Screens
+            previewLineText.innerText = lineTxt;
+            previewEmailSubject.innerText = emailSub;
+            previewEmailBody.innerText = emailBody;
+            previewSmsText.innerText = smsTxt;
+        }
+
+        // Call Gemini Live-like API to generate structured content
+        async function generateGeminiReminders() {
+            const loader = document.getElementById('coffeeBrewLoader');
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+
+            const prod = coffeeProducts.find(p => p.id === selectedProductId);
+            const name = custNameInput.value.trim() || "顧客";
+            const unpaidTime = document.querySelector('input[name="unpaidTime"]:checked').value;
+            const style = marketingStyleSelect.value;
+            const usePromo = includePromoCheckbox.checked;
+
+            // Gather values for prompt
+            const prodName = prod.name;
+            const prodFeature = prod.feature;
+            const prodPrice = prod.price;
+            const prodPromo = usePromo ? prod.promo : "此時段不套用商品折扣";
+            const prodDelivery = prod.delivery;
+            const prodStorage = prod.storage;
+            const prodTone = prod.tone;
+            const prodFaq = prod.faq;
+            const prodFaqAnswer = prod.faq_answer;
+            const prodAutoReply = prod.auto_reply;
+            const prodHumanIntervene = prod.human_intervention;
+
+            // 1. Prepare query string
+            const userPromptText = `請針對此購物車保留狀態生成完整行銷文案。
+            商品資料 JSON：
+            {
+               "商品名稱": "${prodName}",
+               "商品特色": "${prodFeature}",
+               "單價": "${prodPrice}",
+               "現行優惠條件": "${prodPromo}",
+               "配送時限": "${prodDelivery}",
+               "保存指南": "${prodStorage}",
+               "品牌語氣": "${prodTone}",
+               "FAQ原問題": "${prodFaq}",
+               "FAQ原解答": "${prodFaqAnswer}"
+            }
+            
+            顧客情境設定：
+            - 顧客姓名：${name}
+            - 購物車未結帳時數：${unpaidTime}
+            - 行銷策略風格：${style}
+            - 是否帶入商品優惠：${usePromo ? '是' : '否'}`;
+
+            const systemPrompt = `你是一位極致醇香咖啡館的 AI 聯營文案長。請依據提供的商品規格與顧客猶豫狀態，撰寫結構化 JSON 格式的行銷與客服內容。
+            
+            【行銷指引規範】：
+            1. 絕不自行誇大產品成效，完全遵循傳統繁體中文的專業咖啡社群口吻。
+            2. 當「購物車未結帳時數」為 '30m' 時，文案口吻必須極度溫和、不催促、幫忙「暫時保留」；
+               為 '3h' 時，加強「${prodFeature}」所營造的手沖咖啡生活情境與適合享用的人群；
+               為 '24h' 時，才可合情合理帶入「${prodPromo}」；
+               為 '48h' 時，轉變為「貼心客服回饋關懷」，主動詢問是否有磨豆研磨等包裝問題，體現高級品牌的溫度。
+            3. 所有欄位請在一個 JSON 中輸出。
+            
+            【JSON 格式要求】：
+            你必須且只能輸出純 JSON 格式，不帶有任何 Markdown 註記（不可寫 \`\`\`json）。JSON Schema 架構如下：
+            {
+                "lineMessage": "適合 LINE 傳遞的精緻文案，包含生動的咖啡表情符號，段落清晰",
+                "emailSubject": "吸引人但高雅、不誇張的 Email 主旨",
+                "emailBody": "完整的 Email 內容，包含對顧客的親切問候，商品特色與配送說明，結尾有優雅溫暖的祝賀語",
+                "smsMessage": "精簡在 70 字內、適合手機發送的簡訊內容",
+                "faqQuestion": "預測該顧客針對該商品，在此階段可能提出的問題",
+                "faqAnswer": "依據原本商品 FAQ 最專業且口吻溫柔的客服擬真答覆",
+                "autoReplyDecision": "可以/不建議自動回覆，並附加原因說明",
+                "humanIntervene": "標示最適合人工介入的時機(例如需詢問客製研磨度，或送禮卡片指定格式時)"
+            }`;
+
+            const customKey = document.getElementById('userApiKey').value.trim();
+            // In canvas platform, if apiKey is empty, let the middleware inject it automatically
+            const apiKey = customKey || ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userPromptText }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json"
+                }
+            };
+
+            // Implementation of backoff retry
+            async function fetchWithRetry(url, options, retries = 3, delay = 1500) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        if (response.status === 429 && retries > 0) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            return fetchWithRetry(url, options, retries - 1, delay * 2);
+                        }
+                    }
+                    return response;
+                } catch (error) {
+                    if (retries > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithRetry(url, options, retries - 1, delay * 2);
+                    }
+                    throw error;
+                }
+            }
+
+            try {
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API 伺服器響應錯誤，代碼：${response.status}`);
+                }
+
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!jsonText) {
+                    throw new Error("模型未回傳任何資料，將自動啟用本地備份範本。");
+                }
+
+                // Parse structured JSON output
+                const aiResult = JSON.parse(jsonText);
+
+                // Populate Output Workspace with LLM Content
+                outputTextLine.value = aiResult.lineMessage;
+                outputTextEmailSubject.value = aiResult.emailSubject;
+                outputTextEmailBody.value = aiResult.emailBody;
+                outputTextSms.value = aiResult.smsMessage;
+                smsCount.innerText = `目前字數：${aiResult.smsMessage.length} 字 (自動依實際生成計算)`;
+
+                faqQuestion.innerText = `「${aiResult.faqQuestion}」`;
+                faqAnswer.innerText = aiResult.faqAnswer;
+                autoReplyStatus.innerText = aiResult.autoReplyDecision;
+                humanIntervene.innerText = aiResult.humanIntervene;
+
+                // Live Update Mobile Previews
+                previewLineText.innerText = aiResult.lineMessage;
+                previewEmailSubject.innerText = aiResult.emailSubject;
+                previewEmailBody.innerText = aiResult.emailBody;
+                previewSmsText.innerText = aiResult.smsMessage;
+
+                showToast("☕ Gemini AI 已成功萃取並生成本階段風味行銷文案！");
+
+            } catch (error) {
+                console.warn("Gemini API 回傳或解析時遇到狀況，啟用本地端高品質預製規則模型：", error);
+                generateLocalReminders();
+                showToast("⚠️ 已自動啟用本地高畫質範本模組 (API 目前無回應或格式有異)");
+            } finally {
+                loader.classList.remove('flex');
+                loader.classList.add('hidden');
+            }
+        }
+
+        // Copy mechanism
+        function copyToClipboard(elementId, successMsg) {
+            const copyText = document.getElementById(elementId);
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                document.execCommand('copy');
+                showToast(successMsg);
+            } catch (err) {
+                console.error('複製失敗:', err);
+                showToast('瀏覽器不支援一鍵複製，請手動長按選擇複製。');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('clipAlert');
+            const toastText = document.getElementById('clipAlertText');
+            toastText.innerText = msg;
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
